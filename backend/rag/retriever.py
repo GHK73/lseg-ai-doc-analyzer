@@ -5,19 +5,25 @@ from .embeddings import embed_query
 
 
 def retrieve(query, index, chunks, k=3, return_scores=False):
-    # ---- Embed query (consistent with doc embeddings) ----
-    query_embedding = embed_query(query)
+    if index is None or len(chunks) == 0:
+        return [] if not return_scores else ([], [])
+
+    # ---- Embed query ----
+    query_embedding = embed_query(query).astype(np.float32)
+
+    # ---- Ensure k is valid ----
+    k = min(k, len(chunks))
 
     # ---- FAISS search ----
     distances, indices = index.search(query_embedding, k)
 
-    # ---- Safe retrieval ----
     results = []
     scores = []
 
     for idx, score in zip(indices[0], distances[0]):
-        if idx == -1:
+        if idx == -1 or idx >= len(chunks):
             continue
+
         results.append(chunks[idx])
         scores.append(float(score))
 

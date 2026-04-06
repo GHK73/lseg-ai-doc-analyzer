@@ -8,9 +8,10 @@ def build_prompt(query, context):
     You are a financial document assistant.
 
     STRICT RULES:
-    - Answer ONLY from the provided context
-    - Do NOT guess or add external knowledge
-    - If answer is not present → say: "Not found in the document"
+    - Use ONLY the provided context
+    - If answer is not explicitly present → say: "Not found in the document"
+    - Be concise and precise
+    - Do NOT hallucinate
 
     Context:
     {context}
@@ -23,16 +24,23 @@ def build_prompt(query, context):
 
 
 def generate_answer(query, context):
-    prompt = build_prompt(query, context)
+    if not context.strip():
+        return "Not found in the document"
 
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
-        temperature=0,              # deterministic
-        max_tokens=300,             # control cost + latency
+        temperature=0,
+        max_tokens=300,
         messages=[
-            {"role": "system", "content": "You answer strictly from given financial documents."},
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": "Answer strictly using provided financial document context."},
+            {"role": "user", "content": build_prompt(query, context)}
         ]
     )
 
-    return response.choices[0].message.content.strip()
+    answer = response.choices[0].message.content.strip()
+
+    # ---- Safety fallback ----
+    if not answer:
+        return "Not found in the document"
+
+    return answer
