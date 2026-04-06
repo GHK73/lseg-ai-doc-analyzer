@@ -3,7 +3,27 @@
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
+import numpy as np
 
+
+def save_vector_store(index, embeddings, path="data"):
+    os.makedirs(path, exist_ok=True)
+
+    faiss.write_index(index, os.path.join(path, "faiss.index"))
+    np.save(os.path.join(path, "embeddings.npy"), embeddings)
+
+
+def load_vector_store(path="data"):
+    index_path = os.path.join(path, "faiss.index")
+    emb_path = os.path.join(path, "embeddings.npy")
+
+    if not os.path.exists(index_path) or not os.path.exists(emb_path):
+        return None, None
+
+    index = faiss.read_index(index_path)
+    embeddings = np.load(emb_path)
+
+    return index, embeddings
 _model = None
 
 def get_model():
