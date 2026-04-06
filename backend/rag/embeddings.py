@@ -4,21 +4,21 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 import os
+import threading
 
-# -------- Lazy Model Loading --------
+# -------- Thread-safe Lazy Model Loading --------
 _model = None
+_model_lock = threading.Lock()
+
 
 def get_model():
     global _model
     if _model is None:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        with _model_lock:
+            if _model is None:
+                _model = SentenceTransformer("all-MiniLM-L6-v2")
+                _model.eval()  # ensure deterministic behavior
     return _model
-
-
-# -------- Normalization --------
-def _normalize(vectors: np.ndarray) -> np.ndarray:
-    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-    return vectors / np.clip(norms, a_min=1e-10, a_max=None)
 
 
 # -------- Embedding Functions --------
@@ -28,20 +28,27 @@ def embed_texts(texts, batch_size=32):
     embeddings = model.encode(
         texts,
         batch_size=batch_size,
-        show_progress_bar=False
+        show_progress_bar=False,
+        normalize_embeddings=True  # 🔴 ensures FAISS consistency
     )
 
-    embeddings = np.array(embeddings, dtype=np.float32)
-    return _normalize(embeddings)
+    return np.asarray(embeddings, dtype=np.float32)
 
 
 def embed_query(query: str):
     model = get_model()
 
-    embedding = model.encode([query])
-    embedding = np.array(embedding, dtype=np.float32)
+    embedding = model.encode(
+        [query],
+        normalize_embeddings=True
+    )
 
-    return _normalize(embedding)
+    embedding = np.asarray(embedding, dtype=np.float32)
+
+    # safety check
+    assert embedding.ndim == 2, "Query embedding must be 2D"
+
+    return embedding
 
 
 # -------- FAISS Vector Store --------
@@ -49,7 +56,8 @@ def create_vector_store(chunks, batch_size=32):
     embeddings = embed_texts(chunks, batch_size=batch_size)
 
     dimension = embeddings.shape[1]
-    index = faiss.IndexFlatIP(dimension)
+    index = faiss.IndexFlatIP(dimension)  # cosine similarity (normalized)
+
     index.add(embeddings)
 
     return index, embeddings
@@ -83,5 +91,9 @@ def load_vector_store(path="data"):
     embeddings = None
     if os.path.exists(emb_path):
         embeddings = np.load(emb_path)
+
+        # 🔴 strict consistency check
+        if index.ntotal != embeddings.shape[0]:
+            raise ValueError("FAISS index and embeddings count mismatch")
 
     return index, embeddings

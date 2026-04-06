@@ -13,27 +13,23 @@ def chunk_text(text, chunk_size=500, overlap=50):
     chunks = []
     current_chunk = []
 
-    current_length = 0
-
     for sentence in sentences:
-        sentence_length = len(sentence)
+        current_chunk.append(sentence)
 
-        if current_length + sentence_length > chunk_size:
-            if current_chunk:
-                chunks.append(" ".join(current_chunk))
+        # compute current length (words, not chars)
+        words = " ".join(current_chunk).split()
 
-            # ---- overlap handling ----
-            overlap_text = " ".join(current_chunk)[-overlap:]
-            current_chunk = [overlap_text, sentence]
-            current_length = len(overlap_text) + sentence_length
-        else:
-            current_chunk.append(sentence)
-            current_length += sentence_length
+        if len(words) >= chunk_size:
+            chunks.append(" ".join(words))
+
+            # ---- FIXED overlap (word-based) ----
+            overlap_words = words[-overlap:] if overlap > 0 else []
+            current_chunk = [" ".join(overlap_words)]
 
     if current_chunk:
         chunks.append(" ".join(current_chunk))
 
     # ---- filter tiny chunks ----
-    chunks = [c for c in chunks if len(c.strip()) > 50]
+    chunks = [c for c in chunks if len(c.split()) > 20]
 
     return chunks

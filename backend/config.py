@@ -8,8 +8,23 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY not set in environment")
 
-client = Groq(api_key=GROQ_API_KEY)
+def get_groq_client():
+    if not GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY not set")
 
+    return Groq(
+        api_key=GROQ_API_KEY,
+        timeout=10  # 🔴 prevent hanging requests
+    )
+
+
+# lazy init (safer for FastAPI)
+_client = None
+
+
+def get_client():
+    global _client
+    if _client is None:
+        _client = get_groq_client()
+    return _client

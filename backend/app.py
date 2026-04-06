@@ -1,3 +1,5 @@
+# backend/app.py
+
 from fastapi import FastAPI, HTTPException, UploadFile, File
 import shutil
 import os
@@ -19,16 +21,7 @@ app = FastAPI()
 
 # -------- Helpers --------
 def get_user_path(user_id: str):
-    return f"data/{user_id}"
-
-
-def limit_context(chunks, max_chars=3000):
-    context = ""
-    for chunk in chunks:
-        if len(context) + len(chunk) > max_chars:
-            break
-        context += chunk + "\n"
-    return context
+    return os.path.join("data", user_id)
 
 
 # -------- Routes --------
@@ -48,6 +41,10 @@ def upload_file(user_id: str, file: UploadFile = File(...)):
 
     file_path = os.path.join(user_path, os.path.basename(file.filename))
 
+    # ---- Prevent duplicate uploads ----
+    if os.path.exists(file_path):
+        return {"message": "File already uploaded"}
+
     # ---- Save file ----
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -65,6 +62,9 @@ def upload_file(user_id: str, file: UploadFile = File(...)):
     # ---- Process PDF ----
     text = load_pdf(file_path)
     new_chunks = chunk_text(text)
+
+    if not new_chunks:
+        raise HTTPException(status_code=400, detail="No valid text extracted from PDF")
 
     # ---- Create or update index ----
     if index is None:
@@ -90,6 +90,9 @@ def upload_file(user_id: str, file: UploadFile = File(...)):
 # -------- Query --------
 @app.get("/ask")
 def ask(query: str, user_id: str):
+    if not query or not query.strip():
+        raise HTTPException(status_code=400, detail="Empty query")
+
     user_path = get_user_path(user_id)
 
     index, _ = load_vector_store(user_path)
@@ -101,9 +104,13 @@ def ask(query: str, user_id: str):
     with open(chunks_path) as f:
         chunks = json.load(f)
 
-    retrieved_chunks = retrieve(query, index, chunks, k=5)
-    context = limit_context(retrieved_chunks)
+    # ---- Retrieve relevant chunks ----
+    retrieved_chunks = retrieve(query, index, chunks, k=10)
 
-    answer = generate_answer(query, context)
+    if not retrieved_chunks:
+        return {"answer": "Not found in the document"}
+
+    # ---- Generate answer ----
+    answer = generate_answer(query, retrieved_chunks)
 
     return {"answer": answer}
