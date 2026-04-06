@@ -32,34 +32,80 @@ PDF → Loader → Chunker → Embeddings → FAISS
 ---
 
 ## 📁 Project Structure
-
 ```
 lseg-ai-doc-analyzer/
 │
 ├── backend/
-│   ├── app.py
-│   ├── config.py   
+│   ├── app/
+│   │   ├── main.py                # FastAPI entrypoint
+│   │   │
+│   │   ├── api/                  # Route layer
+│   │   │   ├── routes/
+│   │   │   │   ├── auth.py       # login/signup
+│   │   │   │   ├── rag.py        # upload + ask
+│   │   │   │   └── health.py
+│   │   │
+│   │   ├── core/                 # core configs
+│   │   │   ├── config.py         # env, keys
+│   │   │   ├── security.py       # JWT logic
+│   │   │   └── constants.py
+│   │   │
+│   │   ├── services/             # business logic
+│   │   │   ├── rag_service.py    # full RAG pipeline
+│   │   │   ├── ml_service.py     # classifier wrapper
+│   │   │   └── storage_service.py# file + FAISS handling
+│   │   │
+│   │   ├── models/               # schemas
+│   │   │   ├── request.py
+│   │   │   ├── response.py
+│   │   │   └── user.py
+│   │   │
+│   │   ├── db/                   # database layer (future)
+│   │   │   ├── client.py
+│   │   │   └── repositories/
+│   │   │
+│   │   └── utils/                # shared helpers
+│   │       ├── logger.py
+│   │       └── validators.py
 │   │
-│   ├── rag/
+│   ├── rag/                     # RAG engine (pure logic)
 │   │   ├── loader.py
 │   │   ├── chunker.py
 │   │   ├── embeddings.py
 │   │   ├── retriever.py
 │   │   └── qa.py
 │   │
-│   ├── ml/
-│   │   ├── model.py        # Neural network architecture
-│   │   ├── service.py      # Training + inference logic
-│   │   ├── dataset.py      # Dataset handling (optional scaling)
-│   │   ├── utils.py        # Save/load helpers
+│   ├── ml/                      # ML engine
+│   │   ├── model.py
+│   │   ├── service.py
+│   │   ├── dataset.py
+│   │   ├── utils.py
 │   │   └── __init__.py
 │   │
-│   └── requirements.txt
+│   ├── tests/                   # 🔴 add this
+│   │   ├── test_rag.py
+│   │   ├── test_api.py
+│   │   └── test_ml.py
+│   │
+│   ├── requirements.txt
+│   └── .env
 │
-├── data/
-└── README.md
+├── data/                        # per-user storage
+│   └── <user_id>/
+│       ├── faiss.index
+│       ├── embeddings.npy
+│       └── chunks.json
+│
+├── scripts/                     # utilities
+│   ├── reindex.py
+│   └── train_classifier.py
+│
+├── docker/
+│   └── Dockerfile
+│
+├── README.md
+└── .gitignore
 ```
-
 ---
 
 ## ⚙️ Setup
