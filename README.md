@@ -1,8 +1,10 @@
+## 📁 Project Structure
+
 lseg-ai-doc-analyzer/
 │
 ├── backend/
 │   ├── app.py
-│   ├── config.py   👈 HERE
+│   ├── config.py   
 │   │
 │   ├── rag/
 │   │   ├── loader.py
