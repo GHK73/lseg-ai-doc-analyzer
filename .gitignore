@@ -1,0 +1,45 @@
+# 🔐 Environment variables (CRITICAL)
+.env
+
+# 🐍 Python virtual environment
+venv/
+env/
+
+# 🧠 Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 📦 Build / packaging
+build/
+dist/
+*.egg-info/
+
+# 🧪 Testing / coverage
+.coverage
+htmlcov/
+
+# 📝 Logs
+*.log
+
+# 💻 OS files
+.DS_Store
+Thumbs.db
+
+# 🧰 IDE / Editor
+.vscode/
+.idea/
+
+# 📂 Data files (optional - keep if large/sensitive)
+data/
+
+# 🔥 FAISS index files (generated)
+*.index
+
+# 🧪 Jupyter notebooks (optional)
+.ipynb_checkpoints/
+
+# 🚫 Secrets / keys
+*.pem
+*.key
