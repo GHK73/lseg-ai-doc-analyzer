@@ -1,6 +1,6 @@
 # 📊 Financial Document Analyzer (RAG + ML)
 
-Production-grade AI system for analyzing financial documents using **Retrieval-Augmented Generation (RAG)** and a lightweight **PyTorch classifier**.
+Production-grade AI system for analyzing financial documents using **Retrieval-Augmented Generation (RAG)** and a modular **PyTorch-based classifier**.
 
 ---
 
@@ -11,7 +11,7 @@ Production-grade AI system for analyzing financial documents using **Retrieval-A
 * 🔎 Semantic search with FAISS
 * 🧠 RAG pipeline using LLM (Groq - Llama 3.1)
 * 🏷️ Document classification (PyTorch, embedding-based)
-* ⚡ FastAPI backend (low latency APIs)
+* ⚡ FastAPI backend
 
 ---
 
@@ -26,7 +26,7 @@ PDF → Loader → Chunker → Embeddings → FAISS
                                       ↓
                                    Answer
 
-                 └──→ Classifier (PyTorch)
+                 └──→ ML Pipeline (PyTorch Classifier)
 ```
 
 ---
@@ -37,22 +37,26 @@ PDF → Loader → Chunker → Embeddings → FAISS
 lseg-ai-doc-analyzer/
 │
 ├── backend/
-│   ├── app.py              # FastAPI entrypoint
-│   ├── config.py           # Configurations (API keys, paths)
+│   ├── app.py
+│   ├── config.py   
 │   │
 │   ├── rag/
-│   │   ├── loader.py       # PDF loading
-│   │   ├── chunker.py      # Text chunking
-│   │   ├── embeddings.py   # SentenceTransformers embeddings
-│   │   ├── retriever.py    # FAISS search
-│   │   └── qa.py           # RAG + LLM pipeline
+│   │   ├── loader.py
+│   │   ├── chunker.py
+│   │   ├── embeddings.py
+│   │   ├── retriever.py
+│   │   └── qa.py
 │   │
 │   ├── ml/
-│   │   └── classifier.py   # PyTorch classifier (embedding-based)
+│   │   ├── model.py        # Neural network architecture
+│   │   ├── service.py      # Training + inference logic
+│   │   ├── dataset.py      # Dataset handling (optional scaling)
+│   │   ├── utils.py        # Save/load helpers
+│   │   └── __init__.py
 │   │
 │   └── requirements.txt
 │
-├── data/                   # PDFs + processed artifacts
+├── data/
 └── README.md
 ```
 
@@ -89,7 +93,7 @@ Update `config.py`:
 
 ```
 GROQ_API_KEY = "your_api_key"
-MODEL_NAME = "llama3-70b-8192"  # or your choice
+MODEL_NAME = "llama3-70b-8192"
 ```
 
 ---
@@ -100,63 +104,78 @@ MODEL_NAME = "llama3-70b-8192"  # or your choice
 uvicorn app:app --reload
 ```
 
-API will be live at:
-
-```
-http://127.0.0.1:8000
-```
-
 ---
 
-## 🔄 RAG Pipeline Flow
+## 🔄 RAG Pipeline
 
 1. Load PDF → `loader.py`
-2. Split into chunks → `chunker.py`
+2. Chunk text → `chunker.py`
 3. Generate embeddings → `embeddings.py`
-4. Store/search via FAISS → `retriever.py`
+4. Store & retrieve via FAISS → `retriever.py`
 5. Generate answer → `qa.py`
 
 ---
 
-## 🧠 ML Classifier
+## 🧠 ML Pipeline (PyTorch)
 
-* Input: embedding vector (from SentenceTransformers)
-* Model: lightweight MLP (PyTorch)
-* Output: document class
+### Structure
 
-### Example usage
+* `model.py` → defines neural network
+* `service.py` → training & inference
+* `dataset.py` → dataset abstraction (for scaling)
+* `utils.py` → model persistence
+
+---
+
+### Flow
 
 ```
-classifier.predict([embedding])
+Embedding → Classifier → Label
+```
+
+---
+
+### Example Usage
+
+```
+from ml.service import ClassifierService
+
+classifier = ClassifierService(input_dim=768, num_classes=4)
+
+# training
+classifier.train(X_train, y_train)
+
+# inference
+label = classifier.predict([embedding])[0]
 ```
 
 ---
 
 ## 📌 Use Cases
 
-* Financial report analysis
-* Invoice classification
-* Risk/compliance extraction
-* Semantic Q&A over documents
+* Financial document classification
+* Semantic Q&A over reports
+* Intelligent document routing
+* Compliance / risk extraction
 
 ---
 
 ## ⚡ Performance Notes
 
 * Embeddings reused across RAG + ML
-* CPU-only PyTorch (lightweight)
-* FAISS enables fast similarity search
-* Modular design for scaling
+* Lightweight PyTorch model (CPU-friendly)
+* FAISS for fast retrieval
+* Modular design for scalability
 
 ---
 
 ## 🚧 Future Improvements
 
-* Batch processing for embeddings
-* Model persistence (save/load)
+* Model persistence + versioning
 * Async FastAPI endpoints
-* Vector DB migration (Pinecone / Weaviate)
-* Better classification (XGBoost / fine-tuned models)
+* Batch inference
+* Vector DB (Pinecone / Weaviate)
+* Advanced classifiers (XGBoost / fine-tuning)
 
 ---
 
@@ -172,19 +191,18 @@ classifier.predict([embedding])
 
 ## 🎯 Goal
 
-Designed to meet **production standards for AI/ML roles (e.g., LSEG)**:
+Built to meet **production AI/ML standards (LSEG-level)**:
 
-* Modular architecture
-* Efficient pipelines
-* Real-world scalability
+* modular architecture
+* efficient pipelines
+* scalable design
 
 ---
 
 ## 📬 Contributing
 
-PRs and improvements welcome.
-Focus on:
+Focus areas:
 
-* performance
-* modularity
-* real-world use cases
+* performance optimization
+* ML improvements
+* real-world datasets
