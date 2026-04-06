@@ -3,8 +3,16 @@
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
-import numpy as np
+import os
 
+
+_model = None
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _model
 
 def save_vector_store(index, embeddings, path="data"):
     os.makedirs(path, exist_ok=True)
@@ -24,13 +32,7 @@ def load_vector_store(path="data"):
     embeddings = np.load(emb_path)
 
     return index, embeddings
-_model = None
 
-def get_model():
-    global _model
-    if _model is None:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _model
 
 
 def create_vector_store(chunks, batch_size=32):
@@ -43,7 +45,8 @@ def create_vector_store(chunks, batch_size=32):
     )
 
     embeddings = np.array(embeddings)
-    embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    embeddings = embeddings / np.clip(norms, a_min=1e-10, a_max=None)
 
     dimension = embeddings.shape[1]
     index = faiss.IndexFlatIP(dimension)

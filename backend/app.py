@@ -6,6 +6,8 @@ from rag.chunker import chunk_text
 from rag.embeddings import create_vector_store, load_vector_store, save_vector_store
 from rag.retriever import retrieve
 from rag.qa import generate_answer
+import json
+import os
 
 app = FastAPI()
 
@@ -27,23 +29,27 @@ def limit_context(chunks, max_chars=3000):
 def startup_event():
     index, embeddings = load_vector_store("data")
 
-    if index is None:
-        # first run → build
+    chunks_path = "data/chunks.json"
+
+    if index is None or not os.path.exists(chunks_path):
+        # ---- First run ----
         text = load_pdf("../data/sample.pdf")
         chunks = chunk_text(text)
 
         index, embeddings = create_vector_store(chunks)
         save_vector_store(index, embeddings, "data")
 
-        vector_store["chunks"] = chunks
-    else:
-        # load existing
-        text = load_pdf("../data/sample.pdf")
-        chunks = chunk_text(text)
+        # ✅ SAVE chunks
+        with open(chunks_path, "w") as f:
+            json.dump(chunks, f)
 
-        vector_store["chunks"] = chunks
+    else:
+        # ---- Load existing ----
+        with open(chunks_path) as f:
+            chunks = json.load(f)
 
     vector_store["index"] = index
+    vector_store["chunks"] = chunks
 
 # -------- Routes --------
 @app.get("/")
