@@ -1,4 +1,4 @@
-# backend/retriver.py
+# backend/qa/retriver.py
 
 import numpy as np 
 def retrieve(query,model,index,chunks ,k=3):
