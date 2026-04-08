@@ -9,7 +9,7 @@ def _clean_text(text: str) -> str:
     # normalize whitespace
     text = re.sub(r"\s+", " ", text)
 
-    # remove weird unicode artifacts
+    # remove null characters
     text = text.replace("\x00", " ")
 
     return text.strip()
@@ -23,22 +23,40 @@ def load_pdf(file_path: str) -> str:
 
     try:
         with fitz.open(file_path) as doc:
-            for page in doc:
-                # 🔴 FIX: use blocks for better structure
-                blocks = page.get_text("blocks")
+            if len(doc) == 0:
+                raise ValueError("Empty PDF")
 
-                # sort blocks top → bottom
-                blocks = sorted(blocks, key=lambda b: (b[1], b[0]))
+            for page_num, page in enumerate(doc):
+                try:
+                    # -------- Primary method: blocks --------
+                    blocks = page.get_text("blocks")
 
-                page_text = " ".join(block[4] for block in blocks if block[4].strip())
+                    if blocks:
+                        # sort blocks top → bottom
+                        blocks = sorted(blocks, key=lambda b: (b[1], b[0]))
 
-                if page_text:
-                    pages.append(_clean_text(page_text))
+                        page_text = " ".join(
+                            block[4] for block in blocks if block[4].strip()
+                        )
+                    else:
+                        # -------- Fallback method --------
+                        page_text = page.get_text("text")
+
+                    if page_text and page_text.strip():
+                        pages.append(_clean_text(page_text))
+
+                except Exception:
+                    # skip corrupted page instead of crashing
+                    continue
 
     except Exception as e:
         raise RuntimeError(f"Error reading PDF: {e}")
 
+    # -------- Combine all pages --------
     full_text = "\n".join(pages)
 
-    # final safety cleanup
+    # -------- Final validation --------
+    if not full_text.strip():
+        raise ValueError("No readable text found in PDF")
+
     return _clean_text(full_text)

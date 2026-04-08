@@ -1,45 +1,97 @@
-# 🔐 Environment variables (CRITICAL)
+# =========================
+# 🔐 ENV & SECRETS
+# =========================
 .env
+.env.*
+*.pem
+*.key
+*.crt
 
-# 🐍 Python virtual environment
+# =========================
+# 🟢 NODE.JS (Backend/Auth)
+# =========================
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# 🐍 PYTHON (ML + RAG)
+# =========================
 venv/
 env/
-
-# 🧠 Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# 📦 Build / packaging
+# =========================
+# 📦 BUILD FILES
+# =========================
 build/
 dist/
 *.egg-info/
 
-# 🧪 Testing / coverage
+# =========================
+# 🧪 TEST / COVERAGE
+# =========================
 .coverage
 htmlcov/
 
-# 📝 Logs
+# =========================
+# 📝 LOG FILES
+# =========================
 *.log
 
-# 💻 OS files
+# =========================
+# 💻 OS FILES
+# =========================
 .DS_Store
 Thumbs.db
 
-# 🧰 IDE / Editor
+# =========================
+# 🧰 IDE / EDITOR
+# =========================
 .vscode/
 .idea/
 
-# 📂 Data files (optional - keep if large/sensitive)
+# =========================
+# 📂 DATA / ML FILES
+# =========================
 data/
+*.csv
+*.npy
+*.pkl
+*.h5
 
-# 🔥 FAISS index files (generated)
+# =========================
+# 🔥 VECTOR DB / FAISS
+# =========================
 *.index
+*.faiss
 
-# 🧪 Jupyter notebooks (optional)
+# =========================
+# 📄 UPLOADS (IMPORTANT)
+# =========================
+uploads/
+*.pdf
+*.docx
+
+# =========================
+# 🧪 JUPYTER
+# =========================
 .ipynb_checkpoints/
 
-# 🚫 Secrets / keys
-*.pem
-*.key
+# =========================
+# 🗄️ DATABASE DUMPS
+# =========================
+*.sql
+*.sqlite
+*.db
+
+# =========================
+# 🚀 MISC
+# =========================
+*.tmp
+*.cache

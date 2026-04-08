@@ -1,26 +1,29 @@
 # backend/rag/qa.py
 
-from config import client
+from config import get_client
 
 
-MAX_CONTEXT_CHARS = 4000  # 🔴 control context size
+MAX_CONTEXT_CHARS = 4000
 
 
 def _prepare_context(chunks):
     """
-    chunks: list[str]
-    Ensures deterministic ordering + formatting
+    Prioritize high-signal chunks instead of naive truncation
     """
 
-    # ensure stable ordering (important)
-    chunks = list(chunks)
+    context_parts = []
+    total_len = 0
 
-    # join with separators (prevents merging confusion)
-    context = "\n\n---\n\n".join(chunks)
+    for chunk in chunks:
+        chunk_len = len(chunk)
 
-    # hard limit (avoid truncation randomness)
-    if len(context) > MAX_CONTEXT_CHARS:
-        context = context[:MAX_CONTEXT_CHARS]
+        if total_len + chunk_len > MAX_CONTEXT_CHARS:
+            break
+
+        context_parts.append(chunk)
+        total_len += chunk_len
+
+    context = "\n\n---\n\n".join(context_parts)
 
     return context.strip()
 

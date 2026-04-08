@@ -6,3 +6,6 @@ pymupdf
 python-dotenv
 sentence-transformers
 groq
+python-jose
+passlib[bcrypt]
+pymongo

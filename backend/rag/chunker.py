@@ -3,33 +3,44 @@
 import re
 
 
-def chunk_text(text, chunk_size=500, overlap=50):
-    # ---- Clean text ----
+def chunk_text(text: str, chunk_size=500, overlap=50):
+    # -------- Clean text --------
     text = re.sub(r"\s+", " ", text).strip()
 
-    # ---- Sentence split ----
-    sentences = re.split(r'(?<=[.!?]) +', text)
+    if not text:
+        return []
+
+    # -------- Sentence split (robust fallback) --------
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+
+    # fallback if no proper sentence split
+    if len(sentences) <= 1:
+        sentences = text.split(" ")
 
     chunks = []
-    current_chunk = []
+    current_words = []
 
     for sentence in sentences:
-        current_chunk.append(sentence)
+        words = sentence.split()
 
-        # compute current length (words, not chars)
-        words = " ".join(current_chunk).split()
+        # if fallback case → words already list
+        if isinstance(sentence, list):
+            words = sentence
 
-        if len(words) >= chunk_size:
-            chunks.append(" ".join(words))
+        current_words.extend(words)
 
-            # ---- FIXED overlap (word-based) ----
-            overlap_words = words[-overlap:] if overlap > 0 else []
-            current_chunk = [" ".join(overlap_words)]
+        if len(current_words) >= chunk_size:
+            chunks.append(" ".join(current_words[:chunk_size]))
 
-    if current_chunk:
-        chunks.append(" ".join(current_chunk))
+            # -------- overlap --------
+            overlap_words = current_words[-overlap:] if overlap > 0 else []
+            current_words = overlap_words.copy()
 
-    # ---- filter tiny chunks ----
+    # -------- remaining --------
+    if current_words:
+        chunks.append(" ".join(current_words))
+
+    # -------- filter small chunks --------
     chunks = [c for c in chunks if len(c.split()) > 20]
 
     return chunks
