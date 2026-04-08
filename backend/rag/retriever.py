@@ -1,63 +1,87 @@
-# backend/rag/retriever.py
-
 import numpy as np
 from .embeddings import embed_query
 
 
-def retrieve(query, index, chunks, k=5, return_scores=False):
+def retrieve(query, index, chunks, k=5):
     """
-    Retrieve top-k relevant chunks using FAISS similarity search.
+    Retrieve top-k relevant chunks.
+
+    Args:
+        query (str)
+        index (FAISS index)
+        chunks (list): 
+            [
+                "text"
+                OR
+                {"text": "...", "page": 1}
+            ]
+        k (int)
+
+    Returns:
+        List[dict]:
+        [
+            {"text": "...", "page": 2, "score": 0.91}
+        ]
     """
 
-    if index is None or len(chunks) == 0:
-        return ([], []) if return_scores else []
+    if index is None or not chunks:
+        return []
 
     # -------- Embed query --------
     query_embedding = embed_query(query).astype(np.float32)
 
-    # -------- Search FAISS --------
-    search_k = min(k * 3, len(chunks))  # over-fetch for better filtering
+    # -------- FAISS search --------
+    search_k = min(k * 4, len(chunks))  # over-fetch
     scores, indices = index.search(query_embedding, search_k)
 
-    # -------- Collect candidates --------
     candidates = []
 
+    # -------- Collect candidates --------
     for idx, score in zip(indices[0], scores[0]):
         if idx < 0 or idx >= len(chunks):
             continue
 
-        candidates.append((chunks[idx], float(score)))
+        chunk = chunks[idx]
+
+        if isinstance(chunk, dict):
+            text = chunk.get("text", "")
+            page = chunk.get("page", "N/A")
+        else:
+            text = chunk
+            page = "N/A"
+
+        if not text:
+            continue
+
+        candidates.append({
+            "text": text,
+            "page": page,
+            "score": float(score)
+        })
 
     if not candidates:
-        return ([], []) if return_scores else []
+        return []
 
-    # -------- Sort by score --------
-    candidates.sort(key=lambda x: x[1], reverse=True)
+    # -------- Sort by relevance --------
+    candidates.sort(key=lambda x: x["score"], reverse=True)
 
     # -------- Deduplicate --------
     seen = set()
-    filtered = []
+    results = []
 
-    for text, score in candidates:
-        key = text[:120]  # better fingerprint
+    for item in candidates:
+        key = item["text"][:150]  # fingerprint
 
         if key in seen:
             continue
 
         seen.add(key)
-        filtered.append((text, score))
+        results.append(item)
 
-        if len(filtered) >= k:
+        if len(results) >= k:
             break
 
-    # -------- Final output --------
-    results = [item[0] for item in filtered]
-    final_scores = [item[1] for item in filtered]
-
-    # -------- Debug (optional) --------
-    print("🔍 Top scores:", scores[0][:5])
-
-    if return_scores:
-        return results, final_scores
+    # -------- Debug --------
+    print("🔍 Top scores:", [round(s, 3) for s in scores[0][:5]])
 
     return results

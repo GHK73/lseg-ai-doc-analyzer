@@ -1,46 +1,54 @@
-# backend/rag/chunker.py
-
 import re
 
 
-def chunk_text(text: str, chunk_size=500, overlap=50):
+def chunk_text(text: str, chunk_size: int = 120, overlap: int = 30):
+    """
+    Split text into overlapping chunks.
+
+    Args:
+        text (str): input text
+        chunk_size (int): words per chunk
+        overlap (int): overlap between chunks
+
+    Returns:
+        List[str]: list of chunks
+    """
+
     # -------- Clean text --------
     text = re.sub(r"\s+", " ", text).strip()
-
     if not text:
         return []
 
-    # -------- Sentence split (robust fallback) --------
-    sentences = re.split(r'(?<=[.!?])\s+', text)
+    # -------- Sentence splitting --------
+    sentences = re.split(
+        r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=[.!?])\s+',
+        text
+    )
 
-    # fallback if no proper sentence split
     if len(sentences) <= 1:
-        sentences = text.split(" ")
+        sentences = [text]  # fallback
 
+    # -------- Chunking --------
     chunks = []
-    current_words = []
+    buffer = []
 
     for sentence in sentences:
         words = sentence.split()
+        buffer.extend(words)
 
-        # if fallback case → words already list
-        if isinstance(sentence, list):
-            words = sentence
+        while len(buffer) >= chunk_size:
+            chunk_words = buffer[:chunk_size]
+            chunks.append(" ".join(chunk_words))
 
-        current_words.extend(words)
+            # apply overlap
+            buffer = buffer[chunk_size - overlap:] if overlap > 0 else []
 
-        if len(current_words) >= chunk_size:
-            chunks.append(" ".join(current_words[:chunk_size]))
+    # -------- Remaining --------
+    if buffer:
+        chunks.append(" ".join(buffer))
 
-            # -------- overlap --------
-            overlap_words = current_words[-overlap:] if overlap > 0 else []
-            current_words = overlap_words.copy()
-
-    # -------- remaining --------
-    if current_words:
-        chunks.append(" ".join(current_words))
-
-    # -------- filter small chunks --------
-    chunks = [c for c in chunks if len(c.split()) > 20]
-
-    return chunks
+    # -------- Filter tiny chunks --------
+    return [
+        chunk for chunk in chunks
+        if len(chunk.split()) > 30
+    ]
