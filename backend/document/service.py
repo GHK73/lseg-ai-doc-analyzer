@@ -1,9 +1,8 @@
-# backend/document/service.py
-
 from fastapi import HTTPException, UploadFile
 import os
 import json
 import shutil
+from datetime import datetime
 
 from rag.loader import load_pdf
 from rag.chunker import chunk_text
@@ -15,6 +14,9 @@ from rag.embeddings import (
 )
 from rag.retriever import retrieve
 from rag.qa import generate_answer
+
+from db.document_repositry import DocumentRepository
+from db.database import get_db
 
 
 # -------- Helpers --------
@@ -38,62 +40,68 @@ def _save_chunks(chunks, chunks_path):
 
 # -------- Upload Service --------
 def upload_document(user_id: str, file: UploadFile):
-    # ---- Validate file ----
-    if not file.filename or not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files allowed")
-
-    user_path = get_user_path(user_id)
-    os.makedirs(user_path, exist_ok=True)
-
-    file_path = os.path.join(user_path, os.path.basename(file.filename))
-
-    # ---- Prevent duplicate uploads ----
-    if os.path.exists(file_path):
-        return {"message": "File already uploaded"}
-
-    # ---- Save file ----
     try:
+        print("DEBUG user_id:", user_id)
+        print("DEBUG file:", file.filename)
+
+        # ---- Validate file ----
+        if not file.filename or not file.filename.endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Only PDF files allowed")
+
+        user_path = get_user_path(user_id)
+        os.makedirs(user_path, exist_ok=True)
+
+        file_path = os.path.join(user_path, os.path.basename(file.filename))
+
+        if os.path.exists(file_path):
+            return {"message": "File already uploaded"}
+
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"File save error: {e}")
 
-    # ---- Load existing FAISS + chunks ----
-    index, _ = load_vector_store(user_path)
-    chunks_path = os.path.join(user_path, "chunks.json")
-    chunks = _load_chunks(chunks_path)
+        index, _ = load_vector_store(user_path)
+        chunks_path = os.path.join(user_path, "chunks.json")
+        chunks = _load_chunks(chunks_path)
 
-    # ---- Extract text ----
-    try:
         text = load_pdf(file_path)
+        new_chunks = chunk_text(text)
+
+        if not new_chunks:
+            raise HTTPException(status_code=400, detail="No valid text extracted")
+
+        if index is None:
+            index, embeddings = create_vector_store(new_chunks)
+        else:
+            add_to_index(index, new_chunks)
+
+        chunks.extend(new_chunks)
+
+        save_vector_store(index, path=user_path)
+        _save_chunks(chunks, chunks_path)
+
+        # 🔥 DEBUG DB
+        print("DEBUG before Mongo save")
+
+        db = get_db()
+        repo = DocumentRepository(db)
+
+        repo.create_document(user_id, {
+            "filename": file.filename,
+            "num_chunks": len(new_chunks),
+            "storage": {"pdf_path": file_path}
+        })
+
+        print("DEBUG after Mongo save")
+
+        return {
+            "message": "File uploaded and indexed",
+            "chunks_added": len(new_chunks),
+            "total_chunks": len(chunks)
+        }
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    # ---- Chunk text ----
-    new_chunks = chunk_text(text)
-
-    if not new_chunks:
-        raise HTTPException(status_code=400, detail="No valid text extracted")
-
-    # ---- Create or update index ----
-    if index is None:
-        index, embeddings = create_vector_store(new_chunks)
-    else:
-        add_to_index(index, new_chunks)
-
-    # ---- Update chunks ----
-    chunks.extend(new_chunks)
-
-    # ---- Save everything ----
-    save_vector_store(index, path=user_path)
-    _save_chunks(chunks, chunks_path)
-
-    return {
-        "message": "File uploaded and indexed",
-        "chunks_added": len(new_chunks),
-        "total_chunks": len(chunks)
-    }
-
+        print("🔥 FULL ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # -------- Query Service --------
 def ask_question(user_id: str, query: str):
@@ -130,3 +138,38 @@ def ask_question(user_id: str, query: str):
         "answer": answer,
         "chunks_used": len(retrieved_chunks)
     }
+
+
+# -------- List Documents --------
+def list_documents(user_id: str):
+    db = get_db()
+    repo = DocumentRepository(db)
+
+    docs = repo.get_user_documents(user_id)
+
+    for d in docs:
+        d["_id"] = str(d["_id"])
+        d["user_id"] = str(d["user_id"])
+
+    return docs
+
+
+# -------- Delete Document --------
+def delete_document(user_id: str, doc_id: str):
+    db = get_db()
+    repo = DocumentRepository(db)
+
+    doc = repo.get_document(doc_id, user_id)
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # ---- Delete PDF only (FAISS remains shared) ----
+    try:
+        os.remove(doc["storage"]["pdf_path"])
+    except:
+        pass
+
+    repo.delete_document(doc_id, user_id)
+
+    return {"message": "Document deleted (index unchanged)"}

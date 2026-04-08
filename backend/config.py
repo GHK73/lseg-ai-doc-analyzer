@@ -30,3 +30,13 @@ def get_client():
         _client = get_groq_client()
 
     return _client
+
+
+# -------- Database Settings --------
+class Settings:
+    def __init__(self):
+        self.MONGO_URI = os.getenv("MONGO_URI")
+        self.DB_NAME = os.getenv("DB_NAME", "rag_db")
+
+
+settings = Settings()

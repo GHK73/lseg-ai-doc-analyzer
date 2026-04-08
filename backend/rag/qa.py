@@ -6,6 +6,7 @@ from config import get_client
 MAX_CONTEXT_CHARS = 4000
 
 
+
 def _prepare_context(chunks):
     """
     Prioritize high-signal chunks instead of naive truncation
@@ -56,7 +57,7 @@ def generate_answer(query, retrieved_chunks):
 
     if not context:
         return "Not found in the document"
-
+    client = get_client()
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         temperature=0,

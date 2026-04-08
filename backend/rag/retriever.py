@@ -4,36 +4,42 @@ import numpy as np
 from .embeddings import embed_query
 
 
-MIN_SCORE = 0.3
-
-
 def retrieve(query, index, chunks, k=5, return_scores=False):
-    if index is None or len(chunks) == 0:
-        return [] if not return_scores else ([], [])
+    """
+    Retrieve top-k relevant chunks using FAISS similarity search.
+    """
 
+    if index is None or len(chunks) == 0:
+        return ([], []) if return_scores else []
+
+    # -------- Embed query --------
     query_embedding = embed_query(query).astype(np.float32)
 
-    k = min(k * 2, len(chunks))  # 🔥 retrieve more for filtering
+    # -------- Search FAISS --------
+    search_k = min(k * 3, len(chunks))  # over-fetch for better filtering
+    scores, indices = index.search(query_embedding, search_k)
 
-    distances, indices = index.search(query_embedding, k)
-
+    # -------- Collect candidates --------
     candidates = []
 
-    for idx, score in zip(indices[0], distances[0]):
-        if idx == -1 or idx >= len(chunks):
-            continue
-
-        if score < MIN_SCORE:
+    for idx, score in zip(indices[0], scores[0]):
+        if idx < 0 or idx >= len(chunks):
             continue
 
         candidates.append((chunks[idx], float(score)))
 
-    # -------- Deduplicate similar chunks --------
+    if not candidates:
+        return ([], []) if return_scores else []
+
+    # -------- Sort by score --------
+    candidates.sort(key=lambda x: x[1], reverse=True)
+
+    # -------- Deduplicate --------
     seen = set()
     filtered = []
 
-    for text, score in sorted(candidates, key=lambda x: x[1], reverse=True):
-        key = text[:100]  # simple fingerprint
+    for text, score in candidates:
+        key = text[:120]  # better fingerprint
 
         if key in seen:
             continue
@@ -41,13 +47,17 @@ def retrieve(query, index, chunks, k=5, return_scores=False):
         seen.add(key)
         filtered.append((text, score))
 
-        if len(filtered) >= k // 2:
+        if len(filtered) >= k:
             break
 
-    results = [c[0] for c in filtered]
-    scores = [c[1] for c in filtered]
+    # -------- Final output --------
+    results = [item[0] for item in filtered]
+    final_scores = [item[1] for item in filtered]
+
+    # -------- Debug (optional) --------
+    print("🔍 Top scores:", scores[0][:5])
 
     if return_scores:
-        return results, scores
+        return results, final_scores
 
     return results

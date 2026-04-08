@@ -1,6 +1,7 @@
 from bson import ObjectId
 from datetime import datetime
 
+
 class DocumentRepository:
     def __init__(self, db):
         self.collection = db["documents"]
@@ -12,7 +13,7 @@ class DocumentRepository:
 
         result = self.collection.insert_one(doc_data)
 
-        # link to user
+        # link document to user
         self.users.update_one(
             {"_id": ObjectId(user_id)},
             {"$push": {"documents": result.inserted_id}}
@@ -21,10 +22,7 @@ class DocumentRepository:
         return str(result.inserted_id)
 
     def get_user_documents(self, user_id):
-        docs = self.collection.find(
-            {"user_id": ObjectId(user_id)},
-            {"storage": 0}  # hide internal paths if needed
-        )
+        docs = self.collection.find({"user_id": ObjectId(user_id)})
         return list(docs)
 
     def get_document(self, doc_id, user_id):
@@ -34,7 +32,7 @@ class DocumentRepository:
         })
 
     def delete_document(self, doc_id, user_id):
-        result = self.collection.delete_one({
+        self.collection.delete_one({
             "_id": ObjectId(doc_id),
             "user_id": ObjectId(user_id)
         })
@@ -43,5 +41,3 @@ class DocumentRepository:
             {"_id": ObjectId(user_id)},
             {"$pull": {"documents": ObjectId(doc_id)}}
         )
-
-        return result.deleted_count
